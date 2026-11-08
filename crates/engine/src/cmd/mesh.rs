@@ -16,7 +16,7 @@ use crate::{
 pub static COMMANDS: &[CommandSpec] = &[
     CommandSpec::new("mesh.convert", "Convert Mesh", convert)
         .icon("import")
-        .params("body?: mesh body name (default: the selected mesh body); tolerance?: length expression (default 0.05 mm): reconstruct a closed constant-section mechanical mesh as editable planar and cylindrical faces, with a parametric timeline feature in the mesh body's owning component (the active component must be that component or an ancestor; otherwise activate the named component first); the active component is unchanged; name?"),
+        .params("body?: mesh body name (default: the selected mesh body); tolerance?: length expression (default 0.05 mm): reconstruct a closed constant-section mechanical mesh as editable planar and cylindrical faces, with a parametric timeline feature in the mesh body's owning component (the active component must be that component or an ancestor; otherwise activate the named component first); the active component is unchanged; method?: prismatic (default) or faceted (separate closed shells; at most 5000 triangles); name?"),
 ];
 
 /// The mesh body to convert: `body`, else the one selected body.
@@ -47,10 +47,14 @@ fn convert(s: &mut Session, p: &Value) -> Result<Value> {
     }
     let tolerance = expr(p, "tolerance").unwrap_or_else(|| "0.05 mm".into());
     check_expr(s, &tolerance, Kind::Length, cmd, "tolerance")?;
+    let method = str_(p, "method").unwrap_or("prismatic");
+    if !matches!(method, "prismatic" | "faceted") {
+        return Err(bad(cmd, "method must be prismatic or faceted"));
+    }
     // Conversion edits the component definition, independent of its occurrence placement.
     let active_component = std::mem::replace(&mut s.active_component, owner);
     let active_occurrence_path = s.active_occurrence_path.take();
-    let result = add_feature(s, p, FeatureKind::MeshConvert { body: body.into(), tolerance });
+    let result = add_feature(s, p, FeatureKind::MeshConvert { body: body.into(), tolerance, faceted: method == "faceted" });
     s.active_component = active_component;
     s.active_occurrence_path = active_occurrence_path;
     result

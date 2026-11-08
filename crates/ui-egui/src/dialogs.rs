@@ -246,6 +246,7 @@ crate::dialog_descriptor::dialog_descriptors! {
             /// An imported mesh body rebuilt as editable faces (#3001).
             MeshConvert {
                 tolerance: String,
+                faceted: bool,
             },
             /// A construction axis, point or plane made from picks alone (#2474): input `i` is the
             /// command's parameter `keys[i]`, and `t` (along a path) when it takes one.
@@ -961,7 +962,7 @@ impl Dialog {
                 vec![SelInput::new("Objects", BODIES, true), SelInput::new("Path", CURVES, true)],
             ),
             "mesh.convert" => Dialog::new(
-                Kind::MeshConvert { tolerance: crate::length_input::model(&s.doc, 0.05) },
+                Kind::MeshConvert { tolerance: crate::length_input::model(&s.doc, 0.05), faceted: false },
                 vec![SelInput::new("Mesh body", BODIES, false)],
             ),
             "construct.plane.midplane" => Dialog::new(
@@ -5506,13 +5507,13 @@ fn dialog_commands(app: &SolveApp, d: &Dialog) -> Result<Vec<(String, Value)>, S
                 None => ("construct.plane.offset", json!({"base": base})),
             }
         }
-        Kind::MeshConvert { tolerance } => {
+        Kind::MeshConvert { tolerance, faceted } => {
             need(0, "the mesh body")?;
             let body = match sels(d, 0).first() {
                 Some(Sel::Body { name }) => name.clone(),
                 _ => return Err("pick the mesh body to convert".into()),
             };
-            ("mesh.convert", json!({"body": body, "tolerance": tolerance}))
+            ("mesh.convert", json!({"body": body, "tolerance": tolerance, "method": if *faceted { "faceted" } else { "prismatic" }}))
         }
         Kind::Midplane => {
             need(0, "the first plane")?;

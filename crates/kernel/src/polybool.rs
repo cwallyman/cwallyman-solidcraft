@@ -84,6 +84,18 @@ fn welded(m: &Mesh) -> Mesh {
     Mesh { positions, triangles, ..Mesh::default() }
 }
 
+/// Rebuild one closed triangle shell as sewn planar faces.
+pub(crate) fn rebuild_mesh_shell(mesh: &crate::meshbody::TriMesh, tolerance: f64) -> Result<Body> {
+    let mesh = Mesh { positions: mesh.positions.clone(), triangles: mesh.triangles.clone(), ..Mesh::default() };
+    let groups = coplanar_groups(&mesh, tolerance)?;
+    let mut faces = Vec::new();
+    for group in groups {
+        faces.extend(group_faces(&mesh, &group)?);
+    }
+    let (body, _) = crate::sew::sew_touching_with_sources(&faces, &vec![None; faces.len()])?;
+    Ok(body)
+}
+
 /// The mesh's triangles in runs that make one planar face each: triangles sharing an edge, on
 /// one plane within `tol`, are one run.
 fn coplanar_groups(m: &Mesh, tol: f64) -> Result<Vec<Vec<usize>>> {

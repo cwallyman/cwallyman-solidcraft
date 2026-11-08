@@ -913,7 +913,17 @@ fn additional_rows(app: &mut SolveApp, d: &mut Dialog, ui: &mut egui::Ui) -> boo
         Kind::PathPlane { t, .. } => {
             enter |= expr_row(ui, "Position (0 to 1)", t);
         }
-        Kind::MeshConvert { tolerance } => {
+        Kind::MeshConvert { tolerance, faceted } => {
+            form_row(ui, crate::i18n::tr("mesh.convert.method"), |ui| {
+                let mut selected = usize::from(*faceted);
+                ui_kit::segmented(
+                    ui,
+                    &mut selected,
+                    &[crate::i18n::tr("mesh.convert.prismatic"), crate::i18n::tr("mesh.convert.faceted")],
+                    Default::default(),
+                );
+                *faceted = selected == 1;
+            });
             form_row(ui, "Tolerance", |ui| enter |= field(ui, tolerance));
         }
         Kind::Construct { t: Some(t), .. } => {

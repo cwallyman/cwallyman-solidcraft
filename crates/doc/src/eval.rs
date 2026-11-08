@@ -8221,18 +8221,30 @@ fn eval_feature(
             }
             Ok(())
         }
-        FeatureKind::MeshConvert { body, tolerance } => {
+        FeatureKind::MeshConvert { body, tolerance, faceted } => {
             let tolerance = val(vals, tolerance, Kind::Length)?;
             let index = st.bodies.iter().position(|b| &b.name == body).ok_or_else(|| DocError::Unknown(format!("body `{body}`")))?;
             let source = st.bodies.get(index).ok_or_else(|| DocError::Unknown(format!("body `{body}`")))?;
             if doc.model_body_component(source) != f.component {
                 return Err(DocError::Invalid("activate the mesh body's component before converting it".into()));
             }
-            let converted = kernel::convert_prismatic_mesh(&source.body, tolerance)?;
-            let converted = converted.with_color(source.body.color());
-            let result = ModelBody::new(source.name.clone(), converted, f.id);
-            let target = st.bodies.get_mut(index).ok_or_else(|| DocError::Unknown(format!("body `{body}`")))?;
-            *target = result;
+            let name = source.name.clone();
+            let color = source.body.color();
+            let converted = if *faceted {
+                kernel::convert_faceted_mesh(&source.body, tolerance)?
+            } else {
+                vec![kernel::convert_prismatic_mesh(&source.body, tolerance)?]
+            };
+            for (part, converted) in converted.into_iter().enumerate() {
+                let result_name = if part == 0 { name.clone() } else { copy_body_name(st, f, part, &name) };
+                let result = ModelBody::new(result_name, converted.with_color(color), f.id);
+                if part == 0 {
+                    let target = st.bodies.get_mut(index).ok_or_else(|| DocError::Unknown(format!("body `{body}`")))?;
+                    *target = result;
+                } else {
+                    st.bodies.push(result);
+                }
+            }
             Ok(())
         }
         FeatureKind::Repair { body, gap, patch_holes } => {

@@ -86,6 +86,7 @@ mod loft_region_tests;
 mod matchsurf;
 mod measure;
 mod mesh_convert;
+mod mesh_faceted;
 mod meshbody;
 #[cfg(test)]
 mod modify_history_tests;
@@ -199,6 +200,7 @@ pub use loft_blend::loft_blend;
 pub use matchsurf::{match_surface, seam_continuity};
 pub use measure::{BodyMeasure, MassMeasure, measure, measure_mass};
 pub use mesh_convert::convert_prismatic_mesh;
+pub use mesh_faceted::convert_faceted_mesh;
 pub use meshbody::{MAX_TRIANGLES, mesh_body};
 pub use native::{body_from_smlib, smlib_body};
 pub use native::{brep_record, decode_native_body, encode_native_body, native_preview_mesh};

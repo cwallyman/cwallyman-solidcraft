@@ -1,0 +1,7 @@
+{
+  "en": {
+    "mesh.convert.faceted": "Faceted",
+    "mesh.convert.method": "Method",
+    "mesh.convert.prismatic": "Prismatic"
+  }
+}

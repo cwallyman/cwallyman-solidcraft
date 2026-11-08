@@ -631,3 +631,104 @@ fn conversion_from_another_branch_names_the_component_to_activate() {
     assert_eq!(s.doc.to_json(), before);
     assert_eq!((s.active_component, s.active_occurrence_path.clone()), context);
 }
+
+#[test]
+fn faceted_conversion_survives_undo_and_reopen() {
+    let mut s = imported_box();
+    run(&mut s, "mesh.convert", json!({"body":"Mesh", "method":"faceted"}));
+    let check = |s: &Session| {
+        let state = s.model.state();
+        let body = &state.body("Mesh").unwrap().body;
+        assert!(!body.is_mesh());
+        assert_eq!(body.faces(0.01).unwrap().len(), 6);
+        assert!(s.model.results.iter().all(|r| r.error.is_none()), "{:?}", s.model.results);
+    };
+    check(&s);
+    assert!((volume(&mut s) - 6000.).abs() < 1e-6);
+    let cold = Session::new(Document::from_json(&s.doc.to_json()).unwrap());
+    check(&cold);
+    run(&mut s, "edit.undo", json!({}));
+    assert!(s.model.state().body("Mesh").unwrap().body.is_mesh());
+    run(&mut s, "edit.redo", json!({}));
+    check(&s);
+}
+
+#[test]
+fn unknown_mesh_conversion_method_is_refused_without_changes() {
+    let mut s = imported_box();
+    let before = s.doc.to_json();
+    assert!(s.execute("mesh.convert", &json!({"body":"Mesh", "method":"unknown"})).is_err());
+    assert_eq!(s.doc.to_json(), before);
+}
+
+#[test]
+fn faceted_conversion_splits_disconnected_shells() {
+    let mut positions = Vec::new();
+    let mut triangles = Vec::new();
+    for x in [0., 20.] {
+        let part = solidcraft_kernel::box_solid(Vec3::new(x, 0., 0.), Vec3::new(x + 10., 10., 10.)).unwrap();
+        let mesh = part.mesh(&solidcraft_kernel::MeshTolerance::chord(0.01)).unwrap();
+        let offset = (positions.len() / 3) as u32;
+        positions.extend(mesh.positions.iter().flat_map(|p| [p.x, p.y, p.z]));
+        triangles.extend(mesh.triangles.iter().flat_map(|t| t.map(|v| v + offset)));
+    }
+    let mut doc = Document::default();
+    doc.add_feature(
+        FeatureKind::MeshImport {
+            file: "two-boxes.stl".into(),
+            meshes: vec![MeshData { name: "Mesh".into(), positions: positions.into(), triangles: triangles.into(), color: None }],
+        },
+        None,
+    )
+    .unwrap();
+    let mut s = Session::new(doc);
+    run(&mut s, "mesh.convert", json!({"body":"Mesh", "method":"faceted"}));
+    assert!(s.model.results.iter().all(|r| r.error.is_none()), "{:?}", s.model.results);
+    assert_eq!(s.model.state().bodies.len(), 2);
+    assert!(s.model.state().bodies.iter().all(|b| !b.body.is_mesh()));
+}
+
+#[test]
+fn faceted_conversion_accepts_a_tetrahedron() {
+    let mut doc = Document::default();
+    doc.add_feature(
+        FeatureKind::MeshImport {
+            file: "tetrahedron.stl".into(),
+            meshes: vec![MeshData {
+                name: "Mesh".into(),
+                positions: vec![0., 0., 0., 1., 0., 0., 0., 1., 0., 0., 0., 1.].into(),
+                triangles: vec![0, 2, 1, 0, 1, 3, 1, 2, 3, 2, 0, 3].into(),
+                color: None,
+            }],
+        },
+        None,
+    )
+    .unwrap();
+    let mut s = Session::new(doc);
+    run(&mut s, "mesh.convert", json!({"body":"Mesh", "method":"faceted"}));
+    assert!(s.model.results.iter().all(|r| r.error.is_none()), "{:?}", s.model.results);
+    assert!(!s.model.state().body("Mesh").unwrap().body.is_mesh());
+    assert!((volume(&mut s) - 1. / 6.).abs() < 1e-6);
+}
+
+#[test]
+fn faceted_conversion_rejects_an_open_shell_without_changing_the_design() {
+    let mut doc = Document::default();
+    doc.add_feature(
+        FeatureKind::MeshImport {
+            file: "open.stl".into(),
+            meshes: vec![MeshData {
+                name: "Mesh".into(),
+                positions: vec![0., 0., 0., 1., 0., 0., 0., 1., 0.].into(),
+                triangles: vec![0, 1, 2].into(),
+                color: None,
+            }],
+        },
+        None,
+    )
+    .unwrap();
+    let mut s = Session::new(doc);
+    let before = s.doc.to_json();
+    assert!(s.execute("mesh.convert", &json!({"body":"Mesh", "method":"faceted"})).is_err());
+    assert_eq!(s.doc.to_json(), before);
+}

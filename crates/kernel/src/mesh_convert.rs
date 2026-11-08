@@ -78,7 +78,7 @@ pub fn convert_prismatic_mesh(body: &Body, tolerance: f64) -> Result<Body> {
     })
 }
 
-fn weld(mesh: &crate::meshbody::TriMesh, tolerance: f64) -> Result<Body> {
+pub(crate) fn weld(mesh: &crate::meshbody::TriMesh, tolerance: f64) -> Result<Body> {
     if mesh.triangles.len() > MAX_TRIANGLES {
         return Err(over_budget(mesh.triangles.len()));
     }
