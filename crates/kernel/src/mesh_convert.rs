@@ -588,4 +588,50 @@ mod tests {
         let result = convert_prismatic_mesh(&mesh, 0.05).unwrap();
         assert!((crate::measure(&result).unwrap().volume - (30. * 30. - 49. * 4.) * 3.).abs() < 1e-6);
     }
+    /// A dense cube at the 25,000 triangle limit, including 24,300 distinct triangles.
+    #[test]
+    fn faceted_conversion_accepts_a_dense_closed_mesh() {
+        let n = 45usize;
+        let mut positions = Vec::new();
+        let mut triangles = Vec::new();
+        for face in 0..6 {
+            let offset = positions.len() as u32;
+            for i in 0..=n {
+                for j in 0..=n {
+                    let (u, v) = (i as f64 / n as f64, j as f64 / n as f64);
+                    positions.push(match face {
+                        0 => Vec3::new(0., u, v),
+                        1 => Vec3::new(1., u, v),
+                        2 => Vec3::new(u, 0., v),
+                        3 => Vec3::new(u, 1., v),
+                        4 => Vec3::new(u, v, 0.),
+                        _ => Vec3::new(u, v, 1.),
+                    });
+                }
+            }
+            for i in 0..n {
+                for j in 0..n {
+                    let a = offset + (i * (n + 1) + j) as u32;
+                    let b = a + (n + 1) as u32;
+                    triangles.extend([[a, b, b + 1], [a, b + 1, a + 1]]);
+                }
+            }
+        }
+        assert_eq!(triangles.len(), 24_300);
+        triangles.extend_from_within(..700);
+        assert_eq!(triangles.len(), 25_000);
+        let source = crate::mesh_body(&positions, &triangles).unwrap();
+        let bodies = crate::convert_faceted_mesh(&source, 0.05).unwrap();
+        assert_eq!(bodies.len(), 1);
+        assert!(bodies[0].validity().is_empty());
+        assert!((crate::measure(&bodies[0]).unwrap().volume - 1.).abs() < 1e-6);
+    }
+
+    #[test]
+    fn faceted_conversion_rejects_over_25000_triangles() {
+        let positions = [Vec3::ZERO, Vec3::new(1., 0., 0.), Vec3::new(0., 1., 0.)];
+        let mesh = crate::mesh_body(&positions, &vec![[0, 1, 2]; 25_001]).unwrap();
+        let error = crate::convert_faceted_mesh(&mesh, 0.05).unwrap_err().to_string();
+        assert!(error.contains("25000-triangle limit"), "{error}");
+    }
 }

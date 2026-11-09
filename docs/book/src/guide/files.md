@@ -118,7 +118,7 @@ file. If the version can't be read, the command decides: the `slic3r-app-launche
 treated as PrusaSlicer 3, and any other entry is left as it is.
 
 Closed mechanical meshes with a constant cross-section can be rebuilt as solids with the
-`mesh.convert` command (command palette, scripts and the control channel). Its Faceted method also reconstructs separately closed shells as planar solid bodies, up to 5,000 triangles and 256 shells. It merges coplanar triangles but leaves curved surfaces faceted, does not repair holes or fuse bodies, and refuses shells whose bounding boxes contain one another because they may be cavities (this can also reject some separate parts). It does not comprehensively detect self-intersections; inspect the result before relying on it. Scripts select it with `method: "faceted"`.
+`mesh.convert` command (command palette, scripts and the control channel). Its Faceted method also reconstructs separately closed shells as planar solid bodies, up to 25,000 triangles and 256 shells. It merges coplanar triangles but leaves curved surfaces faceted, does not repair holes or fuse bodies, and refuses shells whose bounding boxes contain one another because they may be cavities (this can also reject some separate parts). It does not comprehensively detect self-intersections; inspect the result before relying on it. Scripts select it with `method: "faceted"`.
 
 **File → Export 3MF…** with the format changed to **3MF with face tags** (`file.export` or `file.save_mesh` with `format: "3mf-tagged"`) writes an
 ordinary 3MF in which every triangle also names the B-rep face it lies on and every coordinate
