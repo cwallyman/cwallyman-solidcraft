@@ -1,0 +1,45 @@
+name: Diagnose faceted web startup
+on:
+  push:
+    branches: [diagnose-faceted-web-startup]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install playwright@1.56.1
+      - run: npx playwright install --with-deps webkit
+      - name: Check startup in WebKit
+        run: |
+          cat > check.cjs <<'JS'
+          const { webkit, devices } = require('playwright');
+          (async () => {
+            const browser = await webkit.launch({ headless: true });
+            for (const query of ['', '?webgl']) {
+              const context = await browser.newContext({ ...devices['iPad Pro 11'] });
+              const page = await context.newPage();
+              page.on('console', msg => console.log('console:', msg.type(), msg.text()));
+              page.on('pageerror', err => console.log('pageerror:', err.toString()));
+              page.on('requestfailed', request => console.log('failed:', request.url(), JSON.stringify(request.failure())));
+              page.on('response', response => { if (response.status() >= 400) console.log('HTTP', response.status(), response.url()); });
+              try {
+                const response = await page.goto('https://cwallyman.github.io/cwallyman-solidcraft/' + query, { waitUntil: 'domcontentloaded', timeout: 90000 });
+                console.log('page HTTP:', response && response.status(), 'mode:', query || 'default');
+                await page.waitForTimeout(90000);
+                console.log('state:', JSON.stringify(await page.evaluate(() => ({
+                  title: document.title,
+                  loading: document.querySelector('#solidcraft_loading')?.innerText ?? null,
+                  canvas: !!document.querySelector('#solidcraft_canvas')
+                }))));
+              } catch (err) { console.log('navigation error:', err.toString()); }
+              await context.close();
+            }
+            await browser.close();
+          })().catch(e => { console.error(e); process.exitCode = 1; });
+          JS
+          node check.cjs
